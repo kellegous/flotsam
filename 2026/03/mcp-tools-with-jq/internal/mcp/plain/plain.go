@@ -14,8 +14,6 @@ func New(ctx context.Context) *mcp.Server {
 		Version: "1.0.0",
 	}, nil)
 
-	// s.AddReceivingMiddleware(withLogging(logging.L(ctx)))
-
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "current-time",
 		Description: "Get the current time",
@@ -42,7 +40,14 @@ func New(ctx context.Context) *mcp.Server {
 type currentTimeReq struct{}
 
 type currentTimeRes struct {
-	Time string `json:"time" jsonschema:"Current time in local time zone in ISO 8601 format"`
+	Year      int    `json:"year" jsonschema:"year"`
+	Month     int    `json:"month" jsonschema:"month"`
+	Day       int    `json:"day" jsonschema:"day"`
+	Hour      int    `json:"hour" jsonschema:"hour"`
+	Minute    int    `json:"minute" jsonschema:"minute"`
+	Second    int    `json:"second" jsonschema:"second"`
+	DayOfWeek string `json:"day_of_week" jsonschema:"day_of_week"`
+	Timezone  string `json:"timezone" jsonschema:"timezone"`
 }
 
 func currentTime(
@@ -50,15 +55,34 @@ func currentTime(
 	req *mcp.CallToolRequest,
 	input currentTimeReq,
 ) (*mcp.CallToolResult, currentTimeRes, error) {
+	data, err := weather.Get()
+	if err != nil {
+		return nil, currentTimeRes{}, err
+	}
+
+	loc, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		return nil, currentTimeRes{}, err
+	}
+
+	t := data.Time.In(loc)
+
 	return nil, currentTimeRes{
-		Time: time.Now().Format(time.RFC3339),
+		Year:      t.Year(),
+		Month:     int(t.Month()),
+		Day:       t.Day(),
+		Hour:      t.Hour(),
+		Minute:    t.Minute(),
+		Second:    t.Second(),
+		DayOfWeek: t.Weekday().String(),
+		Timezone:  loc.String(),
 	}, nil
 }
 
 type getCurrentConditionsReq struct{}
 
 type getCurrentConditionsRes struct {
-	Conditions *weather.CurrentConditions `json:"conditions" jsonschema:"Current weather conditions in the local area"`
+	CurrentConditions *weather.CurrentConditions `json:"current_conditions" jsonschema:"Current weather conditions in the local area"`
 }
 
 func getCurrentConditions(
@@ -71,14 +95,14 @@ func getCurrentConditions(
 		return nil, getCurrentConditionsRes{}, err
 	}
 	return nil, getCurrentConditionsRes{
-		Conditions: &data.CurrentConditions,
+		CurrentConditions: &data.CurrentConditions,
 	}, nil
 }
 
 type hourlyForecastReq struct{}
 
 type hourlyForecastRes struct {
-	Forecast []weather.HourlyForecast `json:"forecast" jsonschema:"Hourly weather forecast for the local area for the next 48 hours"`
+	Hours []weather.HourlyForecast `json:"hours" jsonschema:"Hourly weather forecast for the local area for the next 48 hours"`
 }
 
 func hourlyForecast(
@@ -91,14 +115,14 @@ func hourlyForecast(
 		return nil, hourlyForecastRes{}, err
 	}
 	return nil, hourlyForecastRes{
-		Forecast: data.HourlyForecast,
+		Hours: data.HourlyForecast,
 	}, nil
 }
 
 type dailyForecastReq struct{}
 
 type dailyForecastRes struct {
-	Forecast []weather.DailyForecast `json:"forecast" jsonschema:"Daily weather forecast for the local area for the next 7 days"`
+	Days []weather.DailyForecast `json:"days" jsonschema:"Daily weather forecast for the local area for the next 10 days"`
 }
 
 func dailyForecast(
@@ -111,6 +135,6 @@ func dailyForecast(
 		return nil, dailyForecastRes{}, err
 	}
 	return nil, dailyForecastRes{
-		Forecast: data.DailyForecast,
+		Days: data.DailyForecast,
 	}, nil
 }

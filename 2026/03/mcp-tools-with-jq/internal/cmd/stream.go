@@ -138,16 +138,40 @@ func (s *outputStream) processToolResponse(evt *event.Event) error {
 			return poop.Chain(err)
 		}
 
-		res, err := json.MarshalIndent(json.RawMessage(msg.Content), "", "  ")
-		if err != nil {
-			return poop.Chain(err)
-		}
-
-		if _, err := greenColor.Fprintln(s.w, string(res)); err != nil {
+		if err := emitToolResult(s.w, msg.Content); err != nil {
 			return poop.Chain(err)
 		}
 
 		delete(s.pendingToolCalls, msg.ToolID)
+	}
+
+	return nil
+}
+
+func emitToolResult(w io.Writer, content string) error {
+	var msg []struct {
+		Text string `json:"text"`
+	}
+
+	if err := json.Unmarshal([]byte(content), &msg); err != nil {
+		return poop.Chain(err)
+	}
+
+	for _, m := range msg {
+		var r json.RawMessage
+		if err := json.Unmarshal([]byte(m.Text), &r); err != nil {
+			if _, err := greenColor.Fprintln(w, m.Text); err != nil {
+				return poop.Chain(err)
+			}
+		} else {
+			b, err := json.MarshalIndent(r, "", "  ")
+			if err != nil {
+				return poop.Chain(err)
+			}
+			if _, err := greenColor.Fprintln(w, string(b)); err != nil {
+				return poop.Chain(err)
+			}
+		}
 	}
 
 	return nil

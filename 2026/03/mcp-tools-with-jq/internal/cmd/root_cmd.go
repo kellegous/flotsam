@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"kellegous/jqmcp/internal/agent"
+	"kellegous/jqmcp/internal/mcp/jq"
 	"kellegous/jqmcp/internal/mcp/plain"
 	"net"
 	"net/http"
@@ -19,6 +20,7 @@ import (
 type rootFlags struct {
 	mcpAddr string
 	model   Model
+	useJQ   bool
 }
 
 var rootCmd = func() *cobra.Command {
@@ -50,6 +52,13 @@ var rootCmd = func() *cobra.Command {
 		"Model to use for the agent",
 	)
 
+	rootCmd.Flags().BoolVar(
+		&flags.useJQ,
+		"use-jq",
+		false,
+		"Use JQ to filter the MCP responses",
+	)
+
 	return rootCmd
 }()
 
@@ -59,7 +68,7 @@ func Execute() {
 	}
 }
 
-func urlForAddr(addr string) (string, error) {
+func urlForAddr(addr string, useJQ bool) (string, error) {
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
 		return "", err
@@ -67,11 +76,16 @@ func urlForAddr(addr string) (string, error) {
 	if host == "" {
 		host = "localhost"
 	}
+
+	if useJQ {
+		return fmt.Sprintf("http://%s:%s/jq", host, port), nil
+	}
+
 	return fmt.Sprintf("http://%s:%s/plain", host, port), nil
 }
 
 func runRoot(ctx context.Context, flags *rootFlags) error {
-	mcpURL, err := urlForAddr(flags.mcpAddr)
+	mcpURL, err := urlForAddr(flags.mcpAddr, flags.useJQ)
 	if err != nil {
 		return poop.Chain(err)
 	}
@@ -131,6 +145,11 @@ func serveHTTP(ctx context.Context, addr string) error {
 	plainSrv := plain.New(ctx)
 	mux.Handle("/plain", http.StripPrefix("/plain", mcp.NewStreamableHTTPHandler(func(req *http.Request) *mcp.Server {
 		return plainSrv
+	}, nil)))
+
+	jqSrv := jq.New(ctx)
+	mux.Handle("/jq", http.StripPrefix("/jq", mcp.NewStreamableHTTPHandler(func(req *http.Request) *mcp.Server {
+		return jqSrv
 	}, nil)))
 
 	return http.ListenAndServe(addr, mux)
