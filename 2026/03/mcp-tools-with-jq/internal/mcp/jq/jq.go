@@ -114,7 +114,7 @@ func getCurrentConditions(
 }
 
 type hourlyForecastReq struct {
-	JQExpression string `json:"jq_expression,omitempty" jsonschema:"A JQ expression to transform the hours property in the result to select only the data that is needed."`
+	JQExpression string `json:"jq_expression,omitempty" jsonschema:"A JQ expression to transform the hours property in the result (. references an array of hours) to select only the data that is needed."`
 }
 
 type hourlyForecastRes struct {
