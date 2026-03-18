@@ -2,8 +2,8 @@ package plain
 
 import (
 	"context"
+	"kellegous/jqmcp/internal/mcp/util"
 	"kellegous/jqmcp/internal/weather"
-	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -40,14 +40,7 @@ func New(ctx context.Context) *mcp.Server {
 type currentTimeReq struct{}
 
 type currentTimeRes struct {
-	Year      int    `json:"year" jsonschema:"year"`
-	Month     int    `json:"month" jsonschema:"month"`
-	Day       int    `json:"day" jsonschema:"day"`
-	Hour      int    `json:"hour" jsonschema:"hour"`
-	Minute    int    `json:"minute" jsonschema:"minute"`
-	Second    int    `json:"second" jsonschema:"second"`
-	DayOfWeek string `json:"day_of_week" jsonschema:"day_of_week"`
-	Timezone  string `json:"timezone" jsonschema:"timezone"`
+	CurrentTime *util.Time `json:"current_time,omitempty" jsonschema:"Data about the current time in the local time zone"`
 }
 
 func currentTime(
@@ -60,22 +53,13 @@ func currentTime(
 		return nil, currentTimeRes{}, err
 	}
 
-	loc, err := time.LoadLocation("America/New_York")
+	t, err := util.ToTime(data.Time, "America/New_York")
 	if err != nil {
 		return nil, currentTimeRes{}, err
 	}
 
-	t := data.Time.In(loc)
-
 	return nil, currentTimeRes{
-		Year:      t.Year(),
-		Month:     int(t.Month()),
-		Day:       t.Day(),
-		Hour:      t.Hour(),
-		Minute:    t.Minute(),
-		Second:    t.Second(),
-		DayOfWeek: t.Weekday().String(),
-		Timezone:  loc.String(),
+		CurrentTime: t,
 	}, nil
 }
 

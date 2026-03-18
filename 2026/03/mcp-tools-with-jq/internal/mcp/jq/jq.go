@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"kellegous/jqmcp/internal/mcp/util"
 	"kellegous/jqmcp/internal/weather"
-	"time"
 
 	"github.com/itchyny/gojq"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -40,10 +40,13 @@ func New(ctx context.Context) *mcp.Server {
 	return s
 }
 
-type currentTimeReq struct{}
+type currentTimeReq struct {
+	JQExpression string `json:"jq_expression,omitempty" jsonschema:"A JQ expression to transform the current_time property in the result to select only the data that is needed."`
+}
 
 type currentTimeRes struct {
-	Time string `json:"time" jsonschema:"Current time in local time zone in ISO 8601 format"`
+	FilteredCurrentTime any        `json:"filtered_current_time,omitempty" jsonschema:"The current_time property filtered by the JQ expression"`
+	CurrentTime         *util.Time `json:"current_time,omitempty" jsonschema:"Data about the current time in the local time zone"`
 }
 
 func currentTime(
@@ -55,8 +58,24 @@ func currentTime(
 	if err != nil {
 		return nil, currentTimeRes{}, err
 	}
+
+	t, err := util.ToTime(data.Time, "America/New_York")
+	if err != nil {
+		return nil, currentTimeRes{}, err
+	}
+
+	if e := input.JQExpression; e != "" {
+		filtered, err := jqRun(ctx, e, t)
+		if err != nil {
+			return nil, currentTimeRes{}, err
+		}
+		return nil, currentTimeRes{
+			FilteredCurrentTime: filtered,
+		}, nil
+	}
+
 	return nil, currentTimeRes{
-		Time: data.Time.Format(time.RFC3339),
+		CurrentTime: t,
 	}, nil
 }
 
