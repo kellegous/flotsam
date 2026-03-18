@@ -14,7 +14,6 @@ import (
 	"github.com/kellegous/poop"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
-	"trpc.group/trpc-go/trpc-agent-go/event"
 )
 
 type rootFlags struct {
@@ -118,35 +117,12 @@ func runAgent(ctx context.Context, r agent.Runner) error {
 		}
 
 		for evt := range events {
-			if err := stream.processEvent(ctx, evt); err != nil {
+			if err := stream.processEvent(evt); err != nil {
 				return poop.Chain(err)
 			}
 		}
 	}
 	return scanner.Err()
-}
-
-func processEvent(ctx context.Context, evt *event.Event) error {
-	switch evt.Object {
-	case "chat.completion.chunk":
-		res := evt.Response
-		if res == nil {
-			return poop.New("chat.completion.chunk has no response")
-		}
-		if len(res.Choices) == 0 {
-			return poop.New("chat.completion.chunk has no choices")
-		}
-
-		choice := res.Choices[0]
-		content := choice.Delta.Content
-		if content == "" {
-			return nil
-		}
-		fmt.Print(content)
-		return nil
-	}
-
-	return nil
 }
 
 func serveHTTP(ctx context.Context, addr string) error {

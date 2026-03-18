@@ -1,13 +1,18 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 
+	"github.com/fatih/color"
 	"github.com/kellegous/poop"
 	"trpc.group/trpc-go/trpc-agent-go/event"
+)
+
+var (
+	dimColor   = color.New(color.Faint)
+	greenColor = color.New(color.FgGreen)
 )
 
 type toolCall struct {
@@ -18,7 +23,7 @@ type toolCall struct {
 
 type outputStream struct {
 	w                io.Writer
-	thinkingShowing  bool
+	hadThinking      bool
 	pendingToolCalls map[string]*toolCall
 }
 
@@ -29,23 +34,19 @@ func newOutputStream(w io.Writer) *outputStream {
 	}
 }
 
-func (s *outputStream) processEvent(ctx context.Context, evt *event.Event) error {
+func (s *outputStream) processEvent(evt *event.Event) error {
 	switch evt.Object {
 	case "chat.completion.chunk":
-		return s.processChatCompletionChunk(ctx, evt)
+		return s.processChatCompletionChunk(evt)
 	case "chat.completion":
-		return s.processChatCompletion(ctx, evt)
+		return s.processChatCompletion(evt)
 	case "tool.response":
-		return s.processToolResponse(ctx, evt)
+		return s.processToolResponse(evt)
 	}
 	return nil
 }
 
-func (s *outputStream) reset() {
-	s.thinkingShowing = false
-}
-
-func (s *outputStream) processChatCompletionChunk(ctx context.Context, evt *event.Event) error {
+func (s *outputStream) processChatCompletionChunk(evt *event.Event) error {
 	res := evt.Response
 	if res == nil {
 		return poop.New("chat.completion.chunk has no response")
@@ -57,17 +58,19 @@ func (s *outputStream) processChatCompletionChunk(ctx context.Context, evt *even
 
 	choice := res.Choices[0]
 
-	isThinking := choice.Delta.ReasoningContent != ""
-	if isThinking {
-		if s.thinkingShowing {
-			return nil
-		}
-
-		if _, err := fmt.Fprintln(s.w, "Thinking..."); err != nil {
+	if choice.Delta.ReasoningContent != "" {
+		s.hadThinking = true
+		if _, err := dimColor.Fprint(s.w, choice.Delta.ReasoningContent); err != nil {
 			return poop.Chain(err)
 		}
-		s.thinkingShowing = true
 		return nil
+	}
+
+	if s.hadThinking {
+		s.hadThinking = false
+		if _, err := fmt.Fprintln(s.w); err != nil {
+			return poop.Chain(err)
+		}
 	}
 
 	if _, err := fmt.Fprint(s.w, choice.Delta.Content); err != nil {
@@ -77,9 +80,7 @@ func (s *outputStream) processChatCompletionChunk(ctx context.Context, evt *even
 	return nil
 }
 
-func (s *outputStream) processChatCompletion(ctx context.Context, evt *event.Event) error {
-	s.reset()
-
+func (s *outputStream) processChatCompletion(evt *event.Event) error {
 	if _, err := fmt.Fprintln(s.w); err != nil {
 		return poop.Chain(err)
 	}
@@ -111,9 +112,7 @@ func (s *outputStream) processChatCompletion(ctx context.Context, evt *event.Eve
 	return nil
 }
 
-func (s *outputStream) processToolResponse(ctx context.Context, evt *event.Event) error {
-	s.reset()
-
+func (s *outputStream) processToolResponse(evt *event.Event) error {
 	res := evt.Response
 	if res == nil {
 		return poop.New("tool.response has no response")
@@ -135,7 +134,7 @@ func (s *outputStream) processToolResponse(ctx context.Context, evt *event.Event
 			return poop.Chain(err)
 		}
 
-		if _, err := fmt.Fprintf(s.w, "%s(%s)\n", call.Name, string(args)); err != nil {
+		if _, err := greenColor.Fprintf(s.w, "%s(%s)\n", call.Name, string(args)); err != nil {
 			return poop.Chain(err)
 		}
 
@@ -144,7 +143,7 @@ func (s *outputStream) processToolResponse(ctx context.Context, evt *event.Event
 			return poop.Chain(err)
 		}
 
-		if _, err := fmt.Fprintln(s.w, string(res)); err != nil {
+		if _, err := greenColor.Fprintln(s.w, string(res)); err != nil {
 			return poop.Chain(err)
 		}
 
