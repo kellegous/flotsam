@@ -15,22 +15,22 @@ func New(ctx context.Context) *mcp.Server {
 	}, nil)
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "current-time",
+		Name:        "current_time",
 		Description: "Get the current time",
 	}, currentTime)
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "current-conditions",
+		Name:        "current_conditions",
 		Description: "Get the current weather conditions",
 	}, getCurrentConditions)
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "hourly-forecast",
+		Name:        "hourly_forecast",
 		Description: "Get the hourly weather forecast for the local area for the next 48 hours",
 	}, hourlyForecast)
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "daily-forecast",
+		Name:        "daily_forecast",
 		Description: "Get the daily weather forecast for the local area for the next 7 days",
 	}, dailyForecast)
 
