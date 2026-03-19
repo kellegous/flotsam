@@ -26,7 +26,10 @@ type AssistantMessageChunkEvent struct {
 
 func (AssistantMessageChunkEvent) isAgentEvent() {}
 
-type AssistantDoneEvent struct{}
+type AssistantDoneEvent struct {
+	Thinking string
+	Content  string
+}
 
 func (AssistantDoneEvent) isAgentEvent() {}
 
@@ -63,17 +66,17 @@ func toEvents(ctx context.Context, ch <-chan *event.Event) iter.Seq2[agentEvent,
 						return
 					}
 				case "chat.completion":
-					events, err := processChatCompletion(e)
+					event, tools, err := processChatCompletion(e)
 					if err != nil {
 						yield(nil, poop.Chain(err))
 						return
 					}
 
-					for _, evt := range events {
+					for _, evt := range tools {
 						pendingToolCalls[evt.ToolID] = evt
 					}
 
-					if !yield(&AssistantDoneEvent{}, nil) {
+					if !yield(event, nil) {
 						return
 					}
 				case "tool.response":
@@ -93,23 +96,19 @@ func toEvents(ctx context.Context, ch <-chan *event.Event) iter.Seq2[agentEvent,
 	}
 }
 
-func processChatCompletion(e *event.Event) ([]*ToolCallEvent, error) {
+func processChatCompletion(e *event.Event) (*AssistantDoneEvent, []*ToolCallEvent, error) {
 	res := e.Response
 	if res == nil {
-		return nil, poop.New("chat.completion has no response")
+		return nil, nil, poop.New("chat.completion has no response")
 	}
 
 	if len(res.Choices) == 0 {
-		return nil, poop.New("chat.completion has no choices")
+		return nil, nil, poop.New("chat.completion has no choices")
 	}
 
 	choice := res.Choices[0]
 
 	toolCalls := choice.Message.ToolCalls
-	if len(toolCalls) == 0 {
-		return nil, nil
-	}
-
 	events := make([]*ToolCallEvent, 0, len(toolCalls))
 	for _, call := range toolCalls {
 		events = append(events, &ToolCallEvent{
@@ -119,7 +118,10 @@ func processChatCompletion(e *event.Event) ([]*ToolCallEvent, error) {
 		})
 	}
 
-	return events, nil
+	return &AssistantDoneEvent{
+		Thinking: choice.Message.ReasoningContent,
+		Content:  choice.Message.Content,
+	}, events, nil
 }
 
 func processChatCompletionChunk(e *event.Event) (*AssistantMessageChunkEvent, error) {

@@ -99,7 +99,7 @@ func runRoot(ctx context.Context, flags *rootFlags) error {
 		return poop.Chain(err)
 	}
 
-	var lg logger
+	lg := newLogger(false)
 
 	ch := make(chan error)
 
@@ -111,7 +111,7 @@ func runRoot(ctx context.Context, flags *rootFlags) error {
 		ch <- runAgent(
 			ctx,
 			agent.New(ctx, mcpURL, flags.model.Model),
-			&lg,
+			lg,
 		)
 	}()
 
