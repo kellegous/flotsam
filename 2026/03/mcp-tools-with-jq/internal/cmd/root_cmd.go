@@ -99,6 +99,8 @@ func runRoot(ctx context.Context, flags *rootFlags) error {
 		return poop.Chain(err)
 	}
 
+	var lg logger
+
 	ch := make(chan error)
 
 	go func() {
@@ -109,11 +111,27 @@ func runRoot(ctx context.Context, flags *rootFlags) error {
 		ch <- runAgent(
 			ctx,
 			agent.New(ctx, mcpURL, flags.model.Model),
-			flags.logFile,
+			&lg,
 		)
 	}()
 
-	return <-ch
+	if err := <-ch; err != nil {
+		return poop.Chain(err)
+	}
+
+	if flags.logFile != "" {
+		w, err := os.Create(flags.logFile)
+		if err != nil {
+			return poop.Chain(err)
+		}
+		defer w.Close()
+
+		if err := lg.writeTo(w); err != nil {
+			return poop.Chain(err)
+		}
+	}
+
+	return nil
 }
 
 type discard struct {
@@ -134,15 +152,9 @@ func openLogFile(path string) (io.WriteCloser, error) {
 func runAgent(
 	ctx context.Context,
 	r agent.Runner,
-	logFile string,
+	lg *logger,
 ) error {
 	scanner := bufio.NewScanner(os.Stdin)
-
-	w, err := openLogFile(logFile)
-	if err != nil {
-		return poop.Chain(err)
-	}
-	defer w.Close()
 
 	stream := newOutputStream(os.Stdout)
 
@@ -173,6 +185,8 @@ func runAgent(
 			if err := stream.writeEvent(evt); err != nil {
 				return poop.Chain(err)
 			}
+
+			lg.writeEvent(evt)
 		}
 	}
 	return scanner.Err()

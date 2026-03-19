@@ -199,6 +199,16 @@ func decodeToolResult(content string) (maybeJSON, error) {
 
 type maybeJSON []byte
 
+func (m maybeJSON) MarshalJSON() ([]byte, error) {
+	var raw json.RawMessage
+	if err := json.Unmarshal(m, &raw); err == nil {
+		return raw, nil
+	}
+
+	s := string(m)
+	return json.Marshal(s)
+}
+
 func (m maybeJSON) Format() string {
 	var raw json.RawMessage
 	if err := json.Unmarshal(m, &raw); err != nil {
@@ -211,30 +221,4 @@ func (m maybeJSON) Format() string {
 	}
 
 	return string(b)
-}
-
-type fallibleJSON struct {
-	Valid json.RawMessage
-	Raw   string
-}
-
-func (f *fallibleJSON) UnmarshalJSON(b []byte) error {
-	var valid json.RawMessage
-	if err := json.Unmarshal(b, &valid); err != nil {
-		f.Raw = string(b)
-		return nil
-	}
-	f.Valid = valid
-	return nil
-}
-
-func (f fallibleJSON) MarshalJSON() ([]byte, error) {
-	if f.Valid != nil {
-		return f.Valid, nil
-	}
-	return json.Marshal(f.Raw)
-}
-
-func (f *fallibleJSON) String() string {
-	return f.Raw
 }
