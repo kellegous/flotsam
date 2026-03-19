@@ -80,7 +80,7 @@ func currentTime(
 }
 
 type getCurrentConditionsReq struct {
-	JQExpression string `json:"jq_expression,omitempty" jsonschema:"A JQ expression to transform current_conditions property in the result to select only the data that is needed."`
+	JQExpression string `json:"jq_expression,omitempty" jsonschema:"A JQ expression to transform current_conditions property in the result to select only the data that is needed. The context (.) refers to the object contained in the current_conditions property."`
 }
 
 type getCurrentConditionsRes struct {
@@ -114,7 +114,7 @@ func getCurrentConditions(
 }
 
 type hourlyForecastReq struct {
-	JQExpression string `json:"jq_expression,omitempty" jsonschema:"A JQ expression to transform the hours property in the result (. references an array of hours) to select only the data that is needed."`
+	JQExpression string `json:"jq_expression,omitempty" jsonschema:"A JQ expression to transform the hours property in the result to select only the data that is needed. The context (.) refers to the array contained in the hours property."`
 }
 
 type hourlyForecastRes struct {
@@ -148,7 +148,7 @@ func hourlyForecast(
 }
 
 type dailyForecastReq struct {
-	JQExpression string `json:"jq_expression,omitempty" jsonschema:"A JQ expression to transform the days property in the result to select only the data that is needed."`
+	JQExpression string `json:"jq_expression,omitempty" jsonschema:"A JQ expression to transform the days property in the result to select only the data that is needed. The context (.) refers to the array contained in the days property."`
 }
 
 type dailyForecastRes struct {

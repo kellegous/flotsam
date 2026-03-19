@@ -7,7 +7,6 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/kellegous/poop"
-	"trpc.group/trpc-go/trpc-agent-go/event"
 )
 
 var (
@@ -23,7 +22,7 @@ type toolCall struct {
 
 type outputStream struct {
 	w                io.Writer
-	hadThinking      bool
+	thinking         bool
 	pendingToolCalls map[string]*toolCall
 }
 
@@ -34,144 +33,44 @@ func newOutputStream(w io.Writer) *outputStream {
 	}
 }
 
-func (s *outputStream) processEvent(evt *event.Event) error {
-	switch evt.Object {
-	case "chat.completion.chunk":
-		return s.processChatCompletionChunk(evt)
-	case "chat.completion":
-		return s.processChatCompletion(evt)
-	case "tool.response":
-		return s.processToolResponse(evt)
-	}
-	return nil
-}
+func (s *outputStream) writeEvent(evt agentEvent) error {
+	switch evt := evt.(type) {
+	case *ToolCallEvent:
+		return s.writeToolCall(evt)
+	case *AssistantMessageChunkEvent:
+		if evt.IsThinking {
+			s.thinking = true
+			if _, err := dimColor.Fprint(s.w, evt.Chunk); err != nil {
+				return poop.Chain(err)
+			}
+		} else {
+			if s.thinking {
+				s.thinking = false
+				if _, err := fmt.Fprintln(s.w); err != nil {
+					return poop.Chain(err)
+				}
+			}
 
-func (s *outputStream) processChatCompletionChunk(evt *event.Event) error {
-	res := evt.Response
-	if res == nil {
-		return poop.New("chat.completion.chunk has no response")
-	}
-
-	if len(res.Choices) == 0 {
-		return poop.New("chat.completion.chunk has no choices")
-	}
-
-	choice := res.Choices[0]
-
-	if choice.Delta.ReasoningContent != "" {
-		s.hadThinking = true
-		if _, err := dimColor.Fprint(s.w, choice.Delta.ReasoningContent); err != nil {
-			return poop.Chain(err)
+			if _, err := fmt.Fprint(s.w, evt.Chunk); err != nil {
+				return poop.Chain(err)
+			}
 		}
 		return nil
-	}
-
-	if s.hadThinking {
-		s.hadThinking = false
+	case *AssistantDoneEvent:
 		if _, err := fmt.Fprintln(s.w); err != nil {
 			return poop.Chain(err)
 		}
 	}
-
-	if _, err := fmt.Fprint(s.w, choice.Delta.Content); err != nil {
-		return poop.Chain(err)
-	}
-
 	return nil
 }
 
-func (s *outputStream) processChatCompletion(evt *event.Event) error {
-	if _, err := fmt.Fprintln(s.w); err != nil {
+func (s *outputStream) writeToolCall(evt *ToolCallEvent) error {
+	if _, err := greenColor.Fprintf(s.w, "%s(%s)\n", evt.ToolName, evt.ToolArgs.Format()); err != nil {
 		return poop.Chain(err)
 	}
 
-	res := evt.Response
-	if res == nil {
-		return poop.New("chat.completion has no response")
-	}
-
-	if len(res.Choices) == 0 {
-		return poop.New("chat.completion has no choices")
-	}
-
-	choice := res.Choices[0]
-
-	toolCalls := choice.Message.ToolCalls
-	if len(toolCalls) == 0 {
-		return nil
-	}
-
-	for _, call := range toolCalls {
-		s.pendingToolCalls[call.ID] = &toolCall{
-			ID:   call.ID,
-			Name: call.Function.Name,
-			Args: call.Function.Arguments,
-		}
-	}
-
-	return nil
-}
-
-func (s *outputStream) processToolResponse(evt *event.Event) error {
-	res := evt.Response
-	if res == nil {
-		return poop.New("tool.response has no response")
-	}
-
-	for _, choice := range res.Choices {
-		msg := choice.Message
-		if msg.Role != "tool" {
-			return poop.New("tool.response has no tool message")
-		}
-
-		call, ok := s.pendingToolCalls[msg.ToolID]
-		if !ok {
-			return poop.New("tool.response has no pending tool call")
-		}
-
-		args, err := json.MarshalIndent(call.Args, "", "  ")
-		if err != nil {
-			return poop.Chain(err)
-		}
-
-		if _, err := greenColor.Fprintf(s.w, "%s(%s)\n", call.Name, string(args)); err != nil {
-			return poop.Chain(err)
-		}
-
-		if err := emitToolResult(s.w, msg.Content); err != nil {
-			return poop.Chain(err)
-		}
-
-		delete(s.pendingToolCalls, msg.ToolID)
-	}
-
-	return nil
-}
-
-func emitToolResult(w io.Writer, content string) error {
-	var msg []struct {
-		Text string `json:"text"`
-	}
-
-	if err := json.Unmarshal([]byte(content), &msg); err != nil {
+	if _, err := greenColor.Fprintln(s.w, evt.ToolResult.Format()); err != nil {
 		return poop.Chain(err)
-	}
-
-	for _, m := range msg {
-		var r json.RawMessage
-		if err := json.Unmarshal([]byte(m.Text), &r); err != nil {
-			if _, err := greenColor.Fprintln(w, m.Text); err != nil {
-				return poop.Chain(err)
-			}
-		} else {
-			b, err := json.MarshalIndent(r, "", "  ")
-			if err != nil {
-				return poop.Chain(err)
-			}
-			if _, err := greenColor.Fprintln(w, string(b)); err != nil {
-				return poop.Chain(err)
-			}
-		}
 	}
 
 	return nil

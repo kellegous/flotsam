@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"kellegous/jqmcp/internal/agent"
 	"kellegous/jqmcp/internal/mcp/jq"
 	"kellegous/jqmcp/internal/mcp/plain"
@@ -21,6 +22,7 @@ type rootFlags struct {
 	mcpAddr string
 	model   Model
 	useJQ   bool
+	logFile string
 }
 
 var rootCmd = func() *cobra.Command {
@@ -57,6 +59,13 @@ var rootCmd = func() *cobra.Command {
 		"use-jq",
 		false,
 		"Use JQ to filter the MCP responses",
+	)
+
+	rootCmd.Flags().StringVar(
+		&flags.logFile,
+		"log-file",
+		"",
+		"File to write the log to",
 	)
 
 	return rootCmd
@@ -97,17 +106,43 @@ func runRoot(ctx context.Context, flags *rootFlags) error {
 	}()
 
 	go func() {
-		ch <- runAgent(ctx, agent.New(ctx, mcpURL, flags.model.Model))
+		ch <- runAgent(
+			ctx,
+			agent.New(ctx, mcpURL, flags.model.Model),
+			flags.logFile,
+		)
 	}()
-	// 1. Create both MCP servers.
-	// 2. Based on flags, wire up our agent to one of the servers.
-	// 3. Start the runner and process the script, emitting the output
-	//    to stdout. (also capture a JSON log)
+
 	return <-ch
 }
 
-func runAgent(ctx context.Context, r agent.Runner) error {
+type discard struct {
+	io.Writer
+}
+
+func (d *discard) Close() error {
+	return nil
+}
+
+func openLogFile(path string) (io.WriteCloser, error) {
+	if path == "" {
+		return &discard{Writer: io.Discard}, nil
+	}
+	return os.Create(path)
+}
+
+func runAgent(
+	ctx context.Context,
+	r agent.Runner,
+	logFile string,
+) error {
 	scanner := bufio.NewScanner(os.Stdin)
+
+	w, err := openLogFile(logFile)
+	if err != nil {
+		return poop.Chain(err)
+	}
+	defer w.Close()
 
 	stream := newOutputStream(os.Stdout)
 
@@ -130,8 +165,12 @@ func runAgent(ctx context.Context, r agent.Runner) error {
 			return poop.Chain(err)
 		}
 
-		for evt := range events {
-			if err := stream.processEvent(evt); err != nil {
+		for evt, err := range toEvents(ctx, events) {
+			if err != nil {
+				return poop.Chain(err)
+			}
+
+			if err := stream.writeEvent(evt); err != nil {
 				return poop.Chain(err)
 			}
 		}
