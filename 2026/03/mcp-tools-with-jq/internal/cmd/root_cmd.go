@@ -172,6 +172,8 @@ func runAgent(
 			return nil
 		}
 
+		lg.writeEvent(&UserMessageEvent{Message: input})
+
 		events, err := r.Run(ctx, input)
 		if err != nil {
 			return poop.Chain(err)

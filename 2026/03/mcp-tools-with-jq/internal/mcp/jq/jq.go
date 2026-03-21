@@ -8,6 +8,7 @@ import (
 	"kellegous/jqmcp/internal/weather"
 
 	"github.com/itchyny/gojq"
+	"github.com/kellegous/poop"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -59,7 +60,7 @@ func currentTime(
 		return nil, currentTimeRes{}, err
 	}
 
-	t, err := util.ToTime(data.Time, "America/New_York")
+	t, err := util.ToTime(data.Time.ToTime(), "America/New_York")
 	if err != nil {
 		return nil, currentTimeRes{}, err
 	}
@@ -119,7 +120,7 @@ type hourlyForecastReq struct {
 
 type hourlyForecastRes struct {
 	FilteredHours any                      `json:"filtered_hours,omitempty" jsonschema:"The hours property filtered by the JQ expression"`
-	Hours         []weather.HourlyForecast `json:"hours,omitempty" jsonschema:"Hourly weather forecast for the local area for the next 48 hours"`
+	Hours         []weather.HourlyForecast `json:"hours,omitempty" jsonschema:"Hourly weather forecast for the local area for the next 48 hours, starting with the current hour"`
 }
 
 func hourlyForecast(
@@ -133,7 +134,9 @@ func hourlyForecast(
 	}
 
 	if e := args.JQExpression; e != "" {
-		filtered, err := jqRun(ctx, e, data.HourlyForecast)
+		filtered, err := jqRunFirstOf(ctx, e, data.HourlyForecast, hourlyForecastRes{
+			Hours: data.HourlyForecast,
+		})
 		if err != nil {
 			return nil, hourlyForecastRes{}, err
 		}
@@ -153,7 +156,7 @@ type dailyForecastReq struct {
 
 type dailyForecastRes struct {
 	FilteredDays any                     `json:"filtered_days,omitempty" jsonschema:"The days property filtered by the JQ expression"`
-	Days         []weather.DailyForecast `json:"days,omitempty" jsonschema:"Daily weather forecast for the local area for the next 10 days"`
+	Days         []weather.DailyForecast `json:"days,omitempty" jsonschema:"Daily weather forecast for the local area for the next 8 days, starting with the current day"`
 }
 
 func dailyForecast(
@@ -167,7 +170,9 @@ func dailyForecast(
 	}
 
 	if e := args.JQExpression; e != "" {
-		filtered, err := jqRun(ctx, e, data.DailyForecast)
+		filtered, err := jqRunFirstOf(ctx, e, data.DailyForecast, dailyForecastRes{
+			Days: data.DailyForecast,
+		})
 		if err != nil {
 			return nil, dailyForecastRes{}, err
 		}
@@ -225,4 +230,25 @@ func jqRun(ctx context.Context, expr string, data any) (any, error) {
 	}
 
 	return values, nil
+}
+
+func jqRunFirstOf(ctx context.Context, expr string, options ...any) (any, error) {
+	if len(options) == 0 {
+		return nil, poop.New("jqTry: no options provided")
+	}
+
+	var firstErr error
+
+	for _, option := range options {
+		filtered, err := jqRun(ctx, expr, option)
+		if err == nil {
+			return filtered, nil
+		}
+
+		if firstErr == nil {
+			firstErr = err
+		}
+	}
+
+	return nil, firstErr
 }

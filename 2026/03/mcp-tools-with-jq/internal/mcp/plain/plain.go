@@ -53,7 +53,7 @@ func currentTime(
 		return nil, currentTimeRes{}, err
 	}
 
-	t, err := util.ToTime(data.Time, "America/New_York")
+	t, err := util.ToTime(data.Time.ToTime(), "America/New_York")
 	if err != nil {
 		return nil, currentTimeRes{}, err
 	}

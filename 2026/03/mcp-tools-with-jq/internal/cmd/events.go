@@ -14,30 +14,30 @@ type agentEvent interface {
 }
 
 type UserMessageEvent struct {
-	Message string
+	Message string `json:"message"`
 }
 
 func (UserMessageEvent) isAgentEvent() {}
 
 type AssistantMessageChunkEvent struct {
-	IsThinking bool
-	Chunk      string
+	IsThinking bool   `json:"is_thinking"`
+	Chunk      string `json:"chunk"`
 }
 
 func (AssistantMessageChunkEvent) isAgentEvent() {}
 
 type AssistantDoneEvent struct {
-	Thinking string
-	Content  string
+	Thinking string `json:"thinking"`
+	Content  string `json:"content"`
 }
 
 func (AssistantDoneEvent) isAgentEvent() {}
 
 type ToolCallEvent struct {
-	ToolName   string
-	ToolArgs   maybeJSON
-	ToolID     string
-	ToolResult maybeJSON
+	ToolName   string    `json:"tool_name"`
+	ToolArgs   maybeJSON `json:"tool_args"`
+	ToolID     string    `json:"tool_id"`
+	ToolResult maybeJSON `json:"tool_result"`
 }
 
 func (ToolCallEvent) isAgentEvent() {}

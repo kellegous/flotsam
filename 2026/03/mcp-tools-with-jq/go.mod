@@ -8,6 +8,7 @@ require (
 	github.com/kellegous/poop v0.8.0
 	github.com/modelcontextprotocol/go-sdk v1.4.1
 	github.com/spf13/cobra v1.10.2
+	github.com/yuin/goldmark v1.7.17
 	trpc.group/trpc-go/trpc-agent-go v1.7.0
 	trpc.group/trpc-go/trpc-agent-go/model/anthropic v1.7.0
 )
