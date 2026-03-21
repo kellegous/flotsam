@@ -144,7 +144,7 @@ func fromLocal(v string) (model.Model, error) {
 	}{
 		model:   "gpt-oss:20b",
 		apiKey:  "ollama",
-		baseURL: "https://bender.finch-mahi.ts.net/v1",
+		baseURL: "http://127.0.0.1:11434/v1",
 	}
 
 	for opt, err := range parseOptions(v) {

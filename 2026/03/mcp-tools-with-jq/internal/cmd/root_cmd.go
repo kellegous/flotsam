@@ -31,8 +31,8 @@ var rootCmd = func() *cobra.Command {
 	}
 
 	rootCmd := &cobra.Command{
-		Use:   "jqmcp",
-		Short: "jqmcp is a test of MCP tools accepting JQ expressions",
+		Use:   "agent	",
+		Short: "agent is a test of MCP tools accepting JQ expressions",
 		Args:  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := runRoot(cmd.Context(), &flags); err != nil {
