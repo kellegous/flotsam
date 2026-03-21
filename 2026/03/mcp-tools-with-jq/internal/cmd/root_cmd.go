@@ -68,6 +68,8 @@ var rootCmd = func() *cobra.Command {
 		"File to write the log to",
 	)
 
+	rootCmd.AddCommand(renderCmd)
+
 	return rootCmd
 }()
 

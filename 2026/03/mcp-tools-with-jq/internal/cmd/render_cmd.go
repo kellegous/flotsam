@@ -28,17 +28,13 @@ type Event struct {
 var renderCmd = func() *cobra.Command {
 	return &cobra.Command{
 		Use:   "render",
-		Short: "Convert markdown in thinking/content fields to HTML (JSON in, JSON out)",
+		Short: "Pre-render agent content to markdown in agent log files",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runRender(args[0])
 		},
 	}
 }()
-
-func init() {
-	rootCmd.AddCommand(renderCmd)
-}
 
 func runRender(path string) error {
 	data, err := os.ReadFile(path)
