@@ -1,6 +1,6 @@
 # Filtering MCP Tools with jq
 
-Example code for the post [Filtering MCP Tools with jq](https://kellegous.com/j/). The program runs a small in-process MCP server (plain and jq-filtering variants) and an interactive agent that can call those tools, so you can compare behavior with and without jq-shaped tool inputs.
+Example code for the post [Filtering MCP Tools with jq](https://kellegous.com/j/2026/03/21/filtering-mcp-tools-with-jq/). The program runs a small in-process MCP server (plain and jq-filtering variants) and an interactive agent that can call those tools, so you can compare behavior with and without jq-shaped tool inputs.
 
 ## Requirements
 
